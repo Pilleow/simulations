@@ -27,36 +27,9 @@ SOFTWARE.
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <head>
-    <title>Lame Fire</title>
+    <title>&#x1F680 SE Fire Demo</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
-        body {
-            font-family: verdana;
-            font-size: 15px;
-            background-color: #202020;
-            text-align: center;
-        }
-        
-        .button {
-            background-color: #f9f9f9;
-            border: none;
-            color: rgb(0, 0, 0);
-            padding: 10px 32px;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-        }
-        
-        .slider {
-            width: 30%;
-            height: 6px;
-            border-radius: 6px;
-            background: #ffffff;
-            outline: none;
-            opacity: 0.9;
-            -webkit-transition: 1s;
-            transition: opacity 1s;
-        }
-        
         #myCanvas {
             filter: blur(1px) !important;
             background-color: black;
@@ -67,9 +40,10 @@ SOFTWARE.
 <body>
 
     <canvas id="myCanvas" class="bloom" style="border:2px solid"></canvas><br />
-    <input type="range" min="0" max="3" value="0" id="colorSlider" class="slider">
-    <input type="range" min="0" max="30" value="15" id="heatpadPowerSlider" class="slider">
-    <br>
+    <div class="flexList">
+        <input type="range" min="0" max="3" value="0" id="colorSlider" class="slider">
+        <input type="range" min="0" max="30" value="15" id="heatpadPowerSlider" class="slider">
+    </div>
 
     <script>
         // drawing -------------------------------------------------------
@@ -78,7 +52,7 @@ SOFTWARE.
         var c = canvas.getContext("2d");
 
         canvas.width = Math.min(window.innerWidth - 20, 540);
-        canvas.height = window.innerHeight - 100;
+        canvas.height = window.innerHeight - 213;
 
         var simMinWidth = 2.0;
         var cScale = Math.min(canvas.width, canvas.height) / simMinWidth;

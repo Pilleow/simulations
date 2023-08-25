@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html>
 
 <head>
@@ -8,155 +7,45 @@
     </title>
     <base target="_blank">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link rel="stylesheet" href="styles.css">
 
-    <style>
-         :root {
-            --cblack: #000103;
-            --cwhite: #eeeeee;
-            --cwhitemain: #ffffff;
-            --cblue: #323f6b;
-            --cdarkblue: #1b2133;
-            --cblue2: #2859f8;
-        }
-        
-        html {
-            display: flex;
-            justify-content: center;
-        }
-        
-        body {
-            padding-top: 5em;
-            height: 100%;
-            max-width: 1000px;
-            background-color: var(--cblue);
-            color: var(--cwhite);
-        }
-        
-        #topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-align: justify;
-            padding: 1em;
-            padding-left: 2em;
-            padding-right: 2em;
-        }
-        
-        .title {
-            font-size: 3em;
-        }
-        
-        .avatar {
-            width: 230px;
-            height: 230px;
-            border-radius: 1em;
-        }
-        
-        .subtitle {
-            font-size: 1.1em;
-        }
-        
-        a {
-            color: var(--cblue2);
-            width: min-content;
-        }
-        
-        a:hover {
-            color: var(--cblue);
-        }
-        
-        .leftpad {
-            padding-left: 3em;
-        }
-        
-        .card {
-            background-color: var(--cwhite);
-            color: var(--cblack);
-            border-radius: 1em;
-        }
-        
-        .card #topbar {
-            background-color: var(--cwhitemain);
-            color: var(--cblack);
-            border-radius: 1em;
-        }
-        
-        .space-between {
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .card-text {
-            text-align: justify;
-        }
-        
-        .vertical-margin {
-            margin-top: 2em;
-            margin-bottom: 2em;
-        }
-        
-        .alert {
-            border-radius: 1em;
-        }
-        
-        .btn {
-            border-radius: 1em;
-        }
-        
-        #simLinkList {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        footer {
-            position: absolute;
-            bottom: 5em;
-            width: calc(100vw - 10em);
-            display: flex;
-            justify-content: center;
-            font-size: small;
-        }
-        
-        .footer-alert {
-            width: max-content;
-        }
-    </style>
 </head>
 
 <body>
-    <div class="card">
-        <div id="topbar">
-            <img class="avatar" src="https://avatars.githubusercontent.com/u/60982022?v=4">
-            <div class="leftpad">
-                <p class="title">Pilleow Simulations</p>
-                <p class="subtitle">This page has all the links and descriptions of my simulations located in my
-                    <a href="https://github.com/Pilleow/simulations">simulations</a> repository. <br /><br />If you'd like to make your own simulations, I recommend the channel <a href="https://www.youtube.com/@TenMinutePhysics/about">Ten Minute Physics</a>,
-                    where you will find very interesting and digestible tutorials on various 2D and 3D simulations.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="alert alert-primary vertical-margin server-message" role="alert">
-        <tt>MESSAGE FROM SERVER: Have a nice day and a good cup of coffee!</tt>
-    </div>
-
-    <div id="simLinkList">
-
-        <!-- Euler Fire Simulation -->
-        <div class="card" style="width: 18rem;">
-            <div class="card-body">
-                <h5 class="card-title">Symplectic Euler<br />Fire Simulation</h5>
-                <p class="card-text">Heavily inspired by <a href="https://youtu.be/xKEFlg_JMmU?si=ggpCMQ43Gt5PR9zp">this</a> video. The bottom of the screen heats up the particles. When a particle gets hot, its radius increases, its hexadecimal color value increases, and
-                    an upward force is applied relative to the temperature. Heat can be transferred between particles upon collision.</p>
-                <div class="space-between">
-                    <a target="_blank" href="#" class="btn btn-primary">Play&nbsp;demo</a>
-                    <a target="_blank" href="https://github.com/Pilleow/simulations/blob/master/fire_euler.html" class="btn btn-secondary">
-                    View&nbsp;code</a>
+    <div class="main">
+        <div class="card">
+            <div id="topbar">
+                <img class="avatar" src="https://avatars.githubusercontent.com/u/60982022?v=4">
+                <div class="leftpad">
+                    <p class="title">Pilleow Simulations</p>
+                    <p class="subtitle">This page has all the links and descriptions of my simulations located in my
+                        <a href="https://github.com/Pilleow/simulations">simulations</a> repository. <br /><br />If you'd like to make your own simulations, I recommend the channel <a href="https://www.youtube.com/@TenMinutePhysics/about">Ten Minute Physics</a>,
+                        where you will find very interesting and digestible tutorials on various 2D and 3D simulations.</p>
                 </div>
             </div>
         </div>
 
+        <div class="alert alert-primary vertical-margin server-message" role="alert">
+            <tt>MESSAGE FROM SERVER: Have a nice day and a good cup of coffee!</tt>
+        </div>
+
+        <div class="flexList">
+
+            <!-- Euler Fire Simulation -->
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">Symplectic Euler<br />Fire Simulation</h5>
+                    <p class="card-text">Heavily inspired by <a href="https://youtu.be/xKEFlg_JMmU?si=ggpCMQ43Gt5PR9zp">this</a> video. The bottom of the screen heats up the particles. When a particle gets hot, its radius increases, its hexadecimal color value increases,
+                        and an upward force is applied relative to the temperature. Heat can be transferred between particles upon collision.</p>
+                    <div class="space-between">
+                        <a target="_blank" href="https://pilleow.github.io/simulations/fire_euler" class="btn btn-primary">Play&nbsp;demo</a>
+                        <a target="_blank" href="https://github.com/Pilleow/simulations/blob/master/fire_euler.html" class="btn btn-secondary">
+                    View&nbsp;code</a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 
     <footer>
@@ -164,7 +53,6 @@
             Copyright (c) 2023 Igor Zamojski
         </div>
     </footer>
-
 </body>
 
 </html>
