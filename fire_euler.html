@@ -1,0 +1,365 @@
+<!-- 
+MIT License
+
+Copyright (c) 2023 Igor Zamojski
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. 
+-->
+
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<head>
+    <title>Lame Fire</title>
+    <style>
+        body {
+            font-family: verdana;
+            font-size: 15px;
+            background-color: #202020;
+            text-align: center;
+        }
+        
+        .button {
+            background-color: #f9f9f9;
+            border: none;
+            color: rgb(0, 0, 0);
+            padding: 10px 32px;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+        }
+        
+        .slider {
+            width: 30%;
+            height: 6px;
+            border-radius: 6px;
+            background: #ffffff;
+            outline: none;
+            opacity: 0.9;
+            -webkit-transition: 1s;
+            transition: opacity 1s;
+        }
+        
+        #myCanvas {
+            filter: blur(1px) !important;
+            background-color: black;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="myCanvas" class="bloom" style="border:2px solid"></canvas><br />
+    <input type="range" min="0" max="3" value="0" id="colorSlider" class="slider">
+    <input type="range" min="0" max="30" value="15" id="heatpadPowerSlider" class="slider">
+    <br>
+
+    <script>
+        // drawing -------------------------------------------------------
+
+        var canvas = document.getElementById("myCanvas");
+        var c = canvas.getContext("2d");
+
+        canvas.width = Math.min(window.innerWidth - 20, 540);
+        canvas.height = window.innerHeight - 100;
+
+        var simMinWidth = 2.0;
+        var cScale = Math.min(canvas.width, canvas.height) / simMinWidth;
+        var simWidth = canvas.width / cScale;
+        var simHeight = canvas.height / cScale;
+
+        function cX(pos) {
+            return pos.x * cScale;
+        }
+
+        function cY(pos) {
+            return canvas.height - pos.y * cScale;
+        }
+
+        // vector math -------------------------------------------------------
+
+        class Vector2 {
+            constructor(x = 0.0, y = 0.0) {
+                this.x = x;
+                this.y = y;
+            }
+
+            set(v) {
+                this.x = v.x;
+                this.y = v.y;
+            }
+
+            clone() {
+                return new Vector2(this.x, this.y);
+            }
+
+            add(v, s = 1.0) {
+                this.x += v.x * s;
+                this.y += v.y * s;
+                return this;
+            }
+
+            addVectors(a, b) {
+                this.x = a.x + b.x;
+                this.y = a.y + b.y;
+                return this;
+            }
+
+            subtract(v, s = 1.0) {
+                this.x -= v.x * s;
+                this.y -= v.y * s;
+                return this;
+            }
+
+            subtractVectors(a, b) {
+                this.x = a.x - b.x;
+                this.y = a.y - b.y;
+                return this;
+            }
+
+            length() {
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+
+            scale(s) {
+                this.x *= s;
+                this.y *= s;
+            }
+
+            dot(v) {
+                return this.x * v.x + this.y * v.y;
+            }
+        }
+
+        // physics scene -------------------------------------------------------
+
+        class Ball {
+            constructor(radius, mass, pos, vel) {
+                this.radius = radius;
+                this.mass = mass;
+
+                this.temp = 0;
+                this.maxTemp = 255;
+
+                this.pos = pos.clone();
+                this.vel = vel.clone();
+            }
+            addTemp(value) {
+                this.temp = Math.max(0, Math.min(this.maxTemp, this.temp + value));
+            }
+            simulate(dt, gravity) {
+                this.radius = this.temp / 12000 + 0.01;
+                this.vel.add(gravity, dt);
+                this.vel.add(new Vector2(0, this.temp ** 2 / 150), dt)
+                this.pos.add(this.vel, dt);
+            }
+            clone() {
+                return this;
+            }
+        }
+
+        var physicsScene = {
+            gravity: new Vector2(0.0, -50.0),
+            dt: 1.0 / 300.0,
+            worldSize: new Vector2(simWidth, simHeight),
+            paused: true,
+            balls: [],
+            chunks: 100,
+            restitution: .998,
+            numBalls: 5000,
+            heatpadPower: 15,
+            flameColor: 0
+        };
+
+        function getChunkId(xPos) {
+            return Math.max(0, Math.min(Math.floor(xPos * physicsScene.chunks / physicsScene.worldSize.x), physicsScene.chunks - 1));
+        }
+
+        function setupScene() {
+            physicsScene.balls = [];
+            for (ii = 0; ii < physicsScene.chunks; ii++) { // chunks written as vertical columns!!!
+                physicsScene.balls.push([]);
+            }
+
+            for (i = 0; i < physicsScene.numBalls; i++) {
+                var radius = 0.02;
+                var mass = Math.PI * radius * radius;
+                var pos = new Vector2(Math.random() * simWidth, simHeight);
+                var vel = new Vector2(-1.0 + 2.0 * Math.random(), -1.0 + 2.0 * Math.random());
+                physicsScene.balls[getChunkId(pos.x)].push(new Ball(radius, mass, pos, vel));
+            }
+        }
+
+        // draw -------------------------------------------------------
+
+        function draw() {
+            c.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (ii = 0; ii < physicsScene.chunks; ii++) {
+                for (i = 0; i < physicsScene.balls[ii].length; i++) {
+                    var ball = physicsScene.balls[ii][i];
+
+                    var r = (Math.max(0, Math.min(255, 3 * Math.floor(ball.temp / 3.0)))).toString(16);
+                    if (r.length == 1) r = "0" + r;
+                    var g = (Math.max(0, Math.min(255, 3 * Math.floor((ball.temp - 85) / 3.0)))).toString(16);
+                    if (g.length == 1) g = "0" + g;
+                    var b = (Math.max(0, Math.min(255, 3 * Math.floor((ball.temp - 170) / 3.0)))).toString(16);
+                    if (b.length == 1) b = "0" + b;
+
+                    switch (physicsScene.flameColor) {
+                        case 0:
+                            c.fillStyle = "#" + r + g + b;
+                            break;
+                        case 1:
+                            c.fillStyle = "#" + g + b + r;
+                            break;
+                        case 2:
+                            c.fillStyle = "#" + b + r + g;
+                            break;
+                        case 3:
+                            c.fillStyle = "#FFFFFF";
+                            break;
+                    }
+
+                    if (ii == 1) console.log(c.fillStyle);
+
+                    c.beginPath();
+                    c.arc(
+                        cX(ball.pos), cY(ball.pos), cScale * ball.radius, 0.0, 2.0 * Math.PI);
+                    c.closePath();
+                    c.fill();
+                }
+            }
+        }
+
+        // collision handling -------------------------------------------------------
+
+        function handleBallCollision(ball1, ball2, restitution) {
+            var dir = new Vector2();
+            dir.subtractVectors(ball2.pos, ball1.pos);
+            var d = dir.length();
+            if (d == 0.0 || d > ball1.radius + ball2.radius || ball1.vel.dot(ball2.vel) > 0)
+                return;
+
+            dir.scale(1.0 / d);
+
+            var corr = (ball1.radius + ball2.radius - d) / 2.0;
+            ball1.pos.add(dir, -corr);
+            ball2.pos.add(dir, corr);
+
+            var v1 = ball1.vel.dot(dir);
+            var v2 = ball2.vel.dot(dir);
+
+            var m1 = ball1.mass;
+            var m2 = ball2.mass;
+
+            // temperature transfer
+            if (ball1.temp != ball2.temp) {
+                var neg = 5;
+                if (ball1.temp < ball2.temp) neg = -5;
+                ball1.addTemp(-neg);
+                ball2.addTemp(neg);
+            }
+
+            var newV1 = (m1 * v1 + m2 * v2 - m2 * (v1 - v2) * restitution) / (m1 + m2);
+            var newV2 = (m1 * v1 + m2 * v2 - m1 * (v2 - v1) * restitution) / (m1 + m2);
+
+            ball1.vel.add(dir, newV1 - v1);
+            ball2.vel.add(dir, newV2 - v2);
+        }
+
+        // ------------------------------------------------------
+
+        function handleWallCollision(ball, worldSize) {
+            if (ball.pos.x < ball.radius) {
+                ball.pos.x = ball.radius;
+                ball.vel.x = -ball.vel.x;
+            }
+
+            if (ball.pos.x > worldSize.x - ball.radius) {
+                ball.pos.x = worldSize.x - ball.radius;
+                ball.vel.x = -ball.vel.x;
+            }
+
+            if (ball.pos.y < ball.radius) {
+                ball.pos.y = ball.radius;
+                ball.vel.y = -ball.vel.y;
+            }
+
+            if (ball.pos.y > worldSize.y - ball.radius) {
+                ball.pos.y = worldSize.y - ball.radius;
+                ball.vel.y = -ball.vel.y;
+                ball.temp = 0;
+            }
+
+            // temperature
+            if (ball.pos.y < ball.radius * 2) {
+                ball.addTemp(physicsScene.heatpadPower);
+            } else {
+                ball.addTemp(-1);
+            }
+        }
+
+        // simulation -------------------------------------------------------
+
+        function simulate() {
+            for (ii = 0; ii < physicsScene.chunks; ii++) {
+                for (i = 0; i < physicsScene.balls[ii].length; i++) {
+                    var ball1 = physicsScene.balls[ii][i];
+                    ball1.simulate(physicsScene.dt, physicsScene.gravity);
+
+                    // updating ball chunk
+                    if (getChunkId(ball1.pos.x) != ii) {
+                        physicsScene.balls[getChunkId(ball1.pos.x)].push(ball1.clone());
+                        physicsScene.balls[ii].splice(i, 1);
+                    }
+
+                    for (k = -1; k <= 1; k++) {
+                        if ((ii == 0 && k == -1) || (ii == physicsScene.chunks - 1 && k == 1)) continue;
+                        for (j = i + 1; j < physicsScene.balls[ii + k].length; j++) {
+                            var ball2 = physicsScene.balls[ii + k][j];
+                            handleBallCollision(ball1, ball2, physicsScene.restitution);
+                        }
+                    }
+
+                    handleWallCollision(ball1, physicsScene.worldSize);
+                }
+            }
+        }
+
+        async function update() {
+            simulate();
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        setupScene();
+        update();
+
+        document.getElementById("colorSlider").oninput = function() {
+            physicsScene.flameColor = Math.floor(this.value);
+        }
+        document.getElementById("heatpadPowerSlider").oninput = function() {
+            physicsScene.heatpadPower = Math.floor(this.value);
+        }
+    </script>
+</body>
+
+</html>
