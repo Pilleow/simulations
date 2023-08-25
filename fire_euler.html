@@ -156,10 +156,11 @@ SOFTWARE.
             paused: true,
             balls: [],
             chunks: 100,
-            restitution: .998,
+            restitution: 0.993,
             numBalls: 5000,
             heatpadPower: 15,
-            flameColor: 0
+            flameColor: 0,
+            heatpadPos: 0
         };
 
         function getChunkId(xPos) {
@@ -175,7 +176,7 @@ SOFTWARE.
             for (i = 0; i < physicsScene.numBalls; i++) {
                 var radius = 0.02;
                 var mass = Math.PI * radius * radius;
-                var pos = new Vector2(Math.random() * simWidth, simHeight);
+                var pos = new Vector2(Math.random() * simWidth, 5);
                 var vel = new Vector2(-1.0 + 2.0 * Math.random(), -1.0 + 2.0 * Math.random());
                 physicsScene.balls[getChunkId(pos.x)].push(new Ball(radius, mass, pos, vel));
             }
@@ -282,9 +283,10 @@ SOFTWARE.
                 ball.vel.y = -ball.vel.y;
                 ball.temp = 0;
             }
+        }
 
-            // temperature
-            if (ball.pos.y < ball.radius * 2) {
+        function applyHeat(ball, worldSize) {
+            if (ball.pos.y < ball.radius * 3) {
                 ball.addTemp(physicsScene.heatpadPower);
             } else {
                 ball.addTemp(-1);
@@ -297,6 +299,7 @@ SOFTWARE.
             for (ii = 0; ii < physicsScene.chunks; ii++) {
                 for (i = 0; i < physicsScene.balls[ii].length; i++) {
                     var ball1 = physicsScene.balls[ii][i];
+                    applyHeat(ball1, physicsScene.worldSize);
                     ball1.simulate(physicsScene.dt, physicsScene.gravity);
 
                     // updating ball chunk
