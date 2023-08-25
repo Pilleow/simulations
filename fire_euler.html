@@ -125,9 +125,10 @@ SOFTWARE.
         // physics scene -------------------------------------------------------
 
         class Ball {
-            constructor(radius, mass, pos, vel) {
+            constructor(radius, mass, pos, vel, alwaysLit) {
                 this.radius = radius;
                 this.mass = mass;
+                this.alwaysLit = alwaysLit;
 
                 this.temp = 0;
                 this.maxTemp = 255;
@@ -174,11 +175,13 @@ SOFTWARE.
             }
 
             for (i = 0; i < physicsScene.numBalls; i++) {
-                var radius = 0.02;
+                var radius = 0.01;
+                var alwaysLit = false;
+                if (i % 33 == 0) alwaysLit = true;
                 var mass = Math.PI * radius * radius;
-                var pos = new Vector2(Math.random() * simWidth, 5);
-                var vel = new Vector2(-1.0 + 2.0 * Math.random(), -1.0 + 2.0 * Math.random());
-                physicsScene.balls[getChunkId(pos.x)].push(new Ball(radius, mass, pos, vel));
+                var pos = new Vector2(Math.random() * simWidth, Math.floor(Math.random() * 5));
+                var vel = new Vector2(0, 0);
+                physicsScene.balls[getChunkId(pos.x)].push(new Ball(radius, mass, pos, vel, alwaysLit));
             }
         }
 
@@ -191,8 +194,11 @@ SOFTWARE.
                 for (i = 0; i < physicsScene.balls[ii].length; i++) {
                     var ball = physicsScene.balls[ii][i];
 
-                    var r = (Math.max(0, Math.min(255, 3 * Math.floor(ball.temp / 3.0)))).toString(16);
+                    var r_raw = Math.max(0, Math.min(255, 3 * Math.floor(ball.temp / 3.0)))
+                    if (ball.alwaysLit && r_raw < 50) r_raw = 50;
+                    var r = (r_raw).toString(16);
                     if (r.length == 1) r = "0" + r;
+
                     var g = (Math.max(0, Math.min(255, 3 * Math.floor((ball.temp - 85) / 3.0)))).toString(16);
                     if (g.length == 1) g = "0" + g;
                     var b = (Math.max(0, Math.min(255, 3 * Math.floor((ball.temp - 170) / 3.0)))).toString(16);
