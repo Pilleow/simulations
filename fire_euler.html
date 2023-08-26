@@ -30,8 +30,21 @@ SOFTWARE.
     <title>&#x1F680 SE Fire Demo</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        #myCanvas {
-            filter: blur(1px) !important;
+        #myCanvas1 {
+            background-color: transparent;
+            position: absolute;
+            z-index: 99;
+            opacity: .8;
+        }
+        
+        #myCanvas2 {
+            filter: brightness(2) blur(15px) !important;
+            background-color: transparent;
+            position: absolute;
+            z-index: 98;
+        }
+        
+        #myCanvasBg {
             background-color: black;
         }
     </style>
@@ -39,32 +52,58 @@ SOFTWARE.
 
 <body>
 
-    <canvas id="myCanvas" class="bloom" style="border:2px solid"></canvas><br />
-    <div class="flexList">
-        <input type="range" min="0" max="3" value="0" id="colorSlider" class="slider">
-        <input type="range" min="0" max="30" value="15" id="heatpadPowerSlider" class="slider">
+    <div>
+        <canvas id="myCanvas1" style="border:2px solid"></canvas>
+        <canvas id="myCanvas2"></canvas>
+        <canvas id="myCanvasBg"></canvas>
+    </div>
+    <br />
+    <div style="display: flex; justify-content: space-between; font-size: 1.1em; ">
+        <p style="margin-top: 11px">Color Scheme</p><input type="range" min="0" max="4" value="0" id="colorSlider" class="slider">
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 1.1em; ">
+        <p style="margin-top: 11px">Heatpad Power</p><input type="range" min="0" max="30" value="15" id="heatpadPowerSlider" class="slider">
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 1.1em; ">
+        <p style="margin-top: 11px">Heatpad Width</p><input type="range" min="1" max="8" value="3" id="heatpadWidthSlider" class="slider">
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 1.1em; ">
+        <p style="margin-top: 11px">Draw Temperature Cutoff</p><input type="range" min="0" max="140" value="70" id="tempCutoffSlider" class="slider">
+    </div>
+    <div style="text-align: center;">
+        <p style="font-size: 1.1em; width:100%, ">Reload the page to reset to defaults.</p>
     </div>
 
     <script>
         // drawing -------------------------------------------------------
 
-        var canvas = document.getElementById("myCanvas");
-        var c = canvas.getContext("2d");
+        var cvbg = document.getElementById("myCanvasBg");
+        cvbg.width = Math.min(window.innerWidth - 20, 800);
+        cvbg.height = 600;
 
-        canvas.width = Math.min(window.innerWidth - 20, 540);
-        canvas.height = window.innerHeight - 213;
+        var cv1 = document.getElementById("myCanvas1");
+        var cv2 = document.getElementById("myCanvas2");
 
-        var simMinWidth = 2.0;
-        var cScale = Math.min(canvas.width, canvas.height) / simMinWidth;
-        var simWidth = canvas.width / cScale;
-        var simHeight = canvas.height / cScale;
+        var c1 = cv1.getContext("2d");
+        var c2 = cv2.getContext("2d");
+
+        cv1.width = Math.min(window.innerWidth - 20, 800);
+        cv1.height = 600;
+        cv2.width = Math.min(window.innerWidth - 20, 800);
+        cv2.height = 600;
+
+        var simMinWidth = 5.0;
+        var tempCutoff = 70;
+        var cScale = Math.min(cv1.width, cv1.height) / simMinWidth;
+        var simWidth = cv1.width / cScale;
+        var simHeight = cv1.height / cScale;
 
         function cX(pos) {
             return pos.x * cScale;
         }
 
         function cY(pos) {
-            return canvas.height - pos.y * cScale;
+            return cv1.height - pos.y * cScale;
         }
 
         // vector math -------------------------------------------------------
@@ -125,10 +164,10 @@ SOFTWARE.
         // physics scene -------------------------------------------------------
 
         class Ball {
-            constructor(radius, mass, pos, vel, alwaysLit) {
+            constructor(radius, mass, pos, vel, chosenOne) {
                 this.radius = radius;
                 this.mass = mass;
-                this.alwaysLit = alwaysLit;
+                this.chosenOne = chosenOne;
 
                 this.temp = 0;
                 this.maxTemp = 255;
@@ -140,9 +179,10 @@ SOFTWARE.
                 this.temp = Math.max(0, Math.min(this.maxTemp, this.temp + value));
             }
             simulate(dt, gravity) {
-                this.radius = this.temp / 12000 + 0.01;
+                this.radius = this.temp / 32000 + 0.02;
                 this.vel.add(gravity, dt);
-                this.vel.add(new Vector2(0, this.temp ** 2 / 150), dt)
+                if (this.chosenOne && this.temp > 100) this.vel.add(new Vector2(0, this.temp * 3), dt);
+                else this.vel.add(new Vector2(0, this.temp / 2), dt);
                 this.pos.add(this.vel, dt);
             }
             clone() {
@@ -152,16 +192,16 @@ SOFTWARE.
 
         var physicsScene = {
             gravity: new Vector2(0.0, -50.0),
-            dt: 1.0 / 300.0,
+            dt: 1.0 / 250.0,
             worldSize: new Vector2(simWidth, simHeight),
             paused: true,
             balls: [],
-            chunks: 100,
-            restitution: 0.993,
+            chunks: 177,
+            restitution: 0.9966,
             numBalls: 5000,
             heatpadPower: 15,
             flameColor: 0,
-            heatpadPos: 0
+            heatpadWidth: 6.0 / 20.0
         };
 
         function getChunkId(xPos) {
@@ -176,27 +216,29 @@ SOFTWARE.
 
             for (i = 0; i < physicsScene.numBalls; i++) {
                 var radius = 0.01;
-                var alwaysLit = false;
-                if (i % 33 == 0) alwaysLit = true;
+                var chosenOne = false;
+                if (i % 75 == 0) chosenOne = true;
                 var mass = Math.PI * radius * radius;
                 var pos = new Vector2(Math.random() * simWidth, Math.floor(Math.random() * 5));
                 var vel = new Vector2(0, 0);
-                physicsScene.balls[getChunkId(pos.x)].push(new Ball(radius, mass, pos, vel, alwaysLit));
+                physicsScene.balls[getChunkId(pos.x)].push(new Ball(radius, mass, pos, vel, chosenOne));
             }
         }
 
         // draw -------------------------------------------------------
 
         function draw() {
-            c.clearRect(0, 0, canvas.width, canvas.height);
+            c1.clearRect(0, 0, cv1.width, cv1.height);
+            c2.clearRect(0, 0, cv2.width, cv2.height);
 
             for (ii = 0; ii < physicsScene.chunks; ii++) {
                 for (i = 0; i < physicsScene.balls[ii].length; i++) {
                     var ball = physicsScene.balls[ii][i];
+                    if (physicsScene.flameColor != 4 && !ball.chosenOne && ball.temp < tempCutoff) continue;
 
-                    var r_raw = Math.max(0, Math.min(255, 3 * Math.floor(ball.temp / 3.0)))
-                    if (ball.alwaysLit && r_raw < 50) r_raw = 50;
-                    var r = (r_raw).toString(16);
+                    var t = ball.temp;
+                    if (ball.chosenOne && ball.temp > 0 && ball.temp < tempCutoff) t = tempCutoff;
+                    var r = (Math.max(0, Math.min(255, 3 * Math.floor(t / 3.0)))).toString(16);
                     if (r.length == 1) r = "0" + r;
 
                     var g = (Math.max(0, Math.min(255, 3 * Math.floor((ball.temp - 85) / 3.0)))).toString(16);
@@ -204,28 +246,31 @@ SOFTWARE.
                     var b = (Math.max(0, Math.min(255, 3 * Math.floor((ball.temp - 170) / 3.0)))).toString(16);
                     if (b.length == 1) b = "0" + b;
 
-                    switch (physicsScene.flameColor) {
-                        case 0:
-                            c.fillStyle = "#" + r + g + b;
-                            break;
-                        case 1:
-                            c.fillStyle = "#" + g + b + r;
-                            break;
-                        case 2:
-                            c.fillStyle = "#" + b + r + g;
-                            break;
-                        case 3:
-                            c.fillStyle = "#FFFFFF";
-                            break;
+                    for (const cx of[c1, c2]) {
+                        if (ball.chosenOne && cx == c2) continue;
+                        switch (physicsScene.flameColor) {
+                            case 0:
+                                cx.fillStyle = "#" + r + g + b;
+                                break;
+                            case 1:
+                                cx.fillStyle = "#" + g + b + r;
+                                break;
+                            case 2:
+                                cx.fillStyle = "#" + b + r + g;
+                                break;
+                            case 3:
+                                cx.fillStyle = "#FFFFFF";
+                                break;
+                            case 4:
+                                cx.fillStyle = "#FFFFFF";
+                                break;
+                        }
+
+                        cx.beginPath();
+                        cx.arc(cX(ball.pos), cY(ball.pos), cScale * ball.radius, 0.0, 2.0 * Math.PI);
+                        cx.closePath();
+                        cx.fill();
                     }
-
-                    if (ii == 1) console.log(c.fillStyle);
-
-                    c.beginPath();
-                    c.arc(
-                        cX(ball.pos), cY(ball.pos), cScale * ball.radius, 0.0, 2.0 * Math.PI);
-                    c.closePath();
-                    c.fill();
                 }
             }
         }
@@ -236,7 +281,7 @@ SOFTWARE.
             var dir = new Vector2();
             dir.subtractVectors(ball2.pos, ball1.pos);
             var d = dir.length();
-            if (d == 0.0 || d > ball1.radius + ball2.radius || ball1.vel.dot(ball2.vel) > 0)
+            if (d == 0.0 || d > ball1.radius + ball2.radius)
                 return;
 
             dir.scale(1.0 / d);
@@ -252,7 +297,7 @@ SOFTWARE.
             var m2 = ball2.mass;
 
             // temperature transfer
-            if (ball1.temp != ball2.temp) {
+            if (ball1.temp != ball2.temp && !ball1.chosenOne && !ball2.chosenOne) {
                 var neg = 5;
                 if (ball1.temp < ball2.temp) neg = -5;
                 ball1.addTemp(-neg);
@@ -292,10 +337,11 @@ SOFTWARE.
         }
 
         function applyHeat(ball, worldSize) {
-            if (ball.pos.y < ball.radius * 3) {
+            if (ball.pos.y < 0.18 && ball.pos.x >= worldSize.x * physicsScene.heatpadWidth && ball.pos.x <= worldSize.x * (1 - physicsScene.heatpadWidth)) {
                 ball.addTemp(physicsScene.heatpadPower);
             } else {
-                ball.addTemp(-1);
+                if (!ball.chosenOne) ball.addTemp(-2);
+                else ball.addTemp(-1);
             }
         }
 
@@ -341,6 +387,12 @@ SOFTWARE.
         }
         document.getElementById("heatpadPowerSlider").oninput = function() {
             physicsScene.heatpadPower = Math.floor(this.value);
+        }
+        document.getElementById("heatpadWidthSlider").oninput = function() {
+            physicsScene.heatpadWidth = (9 - Math.floor(this.value)) / 20;
+        }
+        document.getElementById("tempCutoffSlider").oninput = function() {
+            tempCutoff = Math.floor(this.value);
         }
     </script>
 </body>
