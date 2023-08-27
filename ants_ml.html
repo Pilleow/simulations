@@ -1,0 +1,803 @@
+<!-- 
+MIT License
+
+Copyright (c) 2023 Igor Zamojski
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. 
+-->
+
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<head>
+    <title>&#x1F680 ML Ants Demo</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        #mainCanvas {
+            background-color: rgb(234, 234, 234);
+            width: 100%;
+            height: 100%;
+        }
+        
+        #populationChart {
+            background-color: rgb(230, 230, 230);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div>
+        <canvas id="mainCanvas" style="border:2px solid black"></canvas>
+        <div style="display:flex; justify-content: space-between; height:0">
+            <p style="height:0;">step=<span id="currentStepNumber">0</span></p>
+            <p style="height:0;" id="resizeInstructions"></p>
+        </div>
+        <canvas id="populationChart" style="width:100%; margin-top: 2em;"></canvas>
+
+    </div>
+    <div style="text-align: center; margin-top: 1em; ">
+
+        <div style="display:flex; justify-content: space-between;">
+            <p style="font-size: 1.3em; width:100%">Generation #: <span id="generationNumber">0</span></p>
+            <p style="font-size: 1.3em; width:100%"><span id="mutationsNumber">0</span> mutations occured.</p>
+            <p style="font-size: 1.3em; width:100%"><span id="survivability">100%</span> survived.</p>
+        </div>
+
+        <div style="display:flex; justify-content: space-between; margin-left: 5em; margin-right: 5em;">
+            <button style="font-size: 1.3em; width:30%;" onclick="resizeLeafCall()" type="button" class="btn btn-success">&#x1F7E9</button>
+            <button style="font-size: 1.3em; width:30%;" onclick="scene.isPaused = !scene.isPaused" type="button" class="btn btn-primary">&#x23EF</button>
+            <button style="font-size: 1.3em; width:30%;" onclick="setupScene()" type="button" class="btn btn-danger">&#x1F525</button>
+        </div>
+
+
+        <div style="display: flex; justify-content: space-between; font-size: 1.1em; margin-right:4em;">
+            <p style="flex-grow: 2; margin-top: 11px">Time per Generation</p><input type="range" min="10" max="50" value="10" id="maxStepsSlider" style="flex-grow: 2;" class="slider">
+            <p style="margin-left: 11px; margin-top: 11px; width: 0;" id="maxStepsNumber">100</p>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 1.1em;  margin-right:4em;">
+            <p style="flex-grow: 2;margin-top: 11px">Genome Size</p><input style="flex-grow: 2;" type="range" min="1" max="64" value="16" id="genomeSizeSlider" class="slider">
+            <p style="margin-left: 11px; margin-top: 11px; width: 0;" id="genomeSizeNumber">64</p>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 1.1em; margin-right:4em;">
+            <p style="flex-grow: 2; margin-top: 11px">Hidden Nodes Amount</p>
+            <p style="margin-top: 11px;margin-right: 1.1em; font-size: 0.5em;">(set to less than genome size)</p><input type="range" style="flex-grow: 2;" min="1" max="64" value="16" id="innerNodesCountSlider" class="slider">
+            <p style="margin-left: 11px; margin-top: 11px; width: 0;" id="innerNodesCountNumber">64</p>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 1.1em; margin-right:4em; ">
+            <p style="flex-grow: 2;margin-top: 11px">Population</p><input type="range" min="1" max="15" value="7" id="populationSlider" style="flex-grow: 2;" class="slider">
+            <p style="margin-left: 11px; margin-top: 11px; width: 0;" id="populationNumber">700</p>
+        </div>
+
+        <p><b>Restart for settings to take effect.</b><br />Refresh page if demo starts lagging (if step speed in bottom-left slows down dramatically)</p>
+    </div>
+
+
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js">
+    </script>
+    <script>
+        const availableSensoryNodes = ["LMvX", "LMvY", "RndN", "PosX", "PosY", "Oscl", "AntA", "DsTC"];
+        const availableActionNodes = ["MvY", "MvX", "MvRn", "MvtB", "MvtC"];
+        const alphabet = new Map([
+            ["a", 1],
+            ["b", 2],
+            ["c", 3],
+            ["d", 4],
+            ["e", 5],
+            ["f", 6],
+            ["g", 7],
+            ["h", 8],
+            ["i", 9],
+            ["j", 10],
+            ["k", 11],
+            ["l", 12],
+            ["m", 13],
+            ["n", 14],
+            ["o", 15],
+            ["p", 16],
+            ["q", 17],
+            ["r", 18],
+            ["s", 19],
+            ["t", 20],
+            ["u", 21],
+            ["v", 22],
+            ["w", 23],
+            ["x", 24],
+            ["y", 25],
+            ["z", 26]
+        ]);
+
+        // ui -----------------------------------------------------------------
+
+        var innerNodesCount = 64;
+        var genomeSize = 64;
+        var maxSteps = 100;
+        var population = 700;
+        var mutationRarity = 0.0002;
+
+        // drawing ------------------------------------------------------------
+
+        var cv = document.getElementById("mainCanvas");
+
+        var c = cv.getContext("2d");
+
+        cv.width = Math.min(window.innerWidth - 20, 700);
+        cv.height = cv.width;
+
+        var simWidth = 100;
+        var simHeight = simWidth;
+        var cScale = cv.width / simWidth;
+
+        function sumStringLetters(str) {
+            var sum = 0;
+            for (let i = 0; i < str.length; ++i) {
+                sum += alphabet.get(str[i].toLowerCase());
+            }
+            return sum;
+        }
+
+        // chart stuff --------------------------------------------------------
+
+        var xChartLabels, populationSizes, populationChart;
+
+        function addData(chart, label, newData) {
+            chart.data.labels.push(label);
+            chart.data.datasets.forEach((dataset) => {
+                dataset.data.push(newData);
+            });
+            chart.update();
+        }
+
+        function removeData(chart) {
+            chart.data.labels.pop();
+            chart.data.datasets.forEach((dataset) => {
+                dataset.data.pop();
+            });
+            chart.update();
+        }
+
+        // vector math --------------------------------------------------------
+
+        class Vector2 {
+            constructor(x = 0.0, y = 0.0) {
+                this.x = x;
+                this.y = y;
+            }
+
+            set(v) {
+                this.x = v.x;
+                this.y = v.y;
+            }
+
+            clone() {
+                return new Vector2(this.x, this.y);
+            }
+
+            add(v, s = 1.0) {
+                this.x += v.x * s;
+                this.y += v.y * s;
+                return this;
+            }
+
+            addVectors(a, b) {
+                this.x = a.x + b.x;
+                this.y = a.y + b.y;
+                return this;
+            }
+
+            subtract(v, s = 1.0) {
+                this.x -= v.x * s;
+                this.y -= v.y * s;
+                return this;
+            }
+
+            subtractVectors(a, b) {
+                this.x = a.x - b.x;
+                this.y = a.y - b.y;
+                return this;
+            }
+
+            length() {
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+
+            scale(s) {
+                this.x *= s;
+                this.y *= s;
+            }
+
+            dot(v) {
+                return this.x * v.x + this.y * v.y;
+            }
+            isInRect(x, y, width, height) {
+                return (this.x >= x && this.x <= x + width && this.y >= y && this.y <= y + height);
+            }
+            distanceTo(v) {
+                return (((this.x - v.x) ** 2 + (this.y - v.y) ** 2) ** 0.5)
+            }
+        }
+
+        // changing leaf position ---------------------------------------------
+
+        var simClickPos = new Vector2(-1, -1);
+        var resizeP1 = new Vector2(0.0, 0.0);
+        var resizeP2 = new Vector2(0.0, 0.0);
+        var resizeProgress = 0;
+
+        cv.addEventListener('mousedown', function(e) {
+            getCursorPosition(cv, e);
+        })
+
+        function resizeLeafCall() {
+            if (resizeProgress == 0) resizeProgress = 1;
+            else {
+                resizeProgress = 0;
+                document.querySelector("#resizeInstructions").innerHTML = "";
+            }
+        }
+
+        function getCursorPosition(canvas, event) {
+            const rect = canvas.getBoundingClientRect();
+            simClickPos.x = (event.clientX - rect.left) / cv.width * simWidth;
+            simClickPos.y = (event.clientY - rect.top) / cv.height * simHeight;
+        }
+
+        function resizeLeaf() {
+            // gather information
+            switch (resizeProgress) {
+                case 1: // set instruction 1
+                    simClickPos.x = -1;
+                    simClickPos.y = -1;
+                    document.querySelector("#resizeInstructions").innerHTML = "Click where you want the top left corner to be.";
+                    resizeProgress++;
+                    break;
+                case 2: // await click & set x and y
+                    if (simClickPos.x != -1 && simClickPos.y != -1) {
+                        resizeP1.x = simClickPos.x;
+                        resizeP1.y = simClickPos.y;
+                        resizeProgress++;
+
+                        // snap to border
+                        if (resizeP1.x > simWidth * 0.95) resizeP1.x = simWidth;
+                        else if (resizeP1.x < simWidth * 0.05) resizeP1.x = 0;
+                        if (resizeP1.y > simHeight * 0.95) resizeP1.y = simHeight;
+                        else if (resizeP1.y < simHeight * 0.05) resizeP1.y = 0;
+                    }
+                    break;
+                case 3: // set instruction 2
+                    simClickPos.x = -1;
+                    simClickPos.y = -1;
+                    document.querySelector("#resizeInstructions").innerHTML = "Click where you want the bottom right corner to be.";
+                    resizeProgress++;
+                    break;
+                case 4: // await click & set w and h
+                    if (simClickPos.x != -1 && simClickPos.y != -1) {
+                        resizeP2.x = simClickPos.x;
+                        resizeP2.y = simClickPos.y;
+                        resizeProgress++;
+
+                        // snap to border
+                        if (resizeP2.x > simWidth * 0.95) resizeP2.x = simWidth;
+                        else if (resizeP2.x < simWidth * 0.05) resizeP2.x = 0;
+                        if (resizeP2.y > simHeight * 0.95) resizeP2.y = simHeight;
+                        else if (resizeP2.y < simHeight * 0.05) resizeP2.y = 0;
+                    }
+                    break;
+                case 5: // clear instruction
+                    document.querySelector("#resizeInstructions").innerHTML = "";
+                    resizeProgress = 0;
+                    break;
+                default:
+                    console.error("Invalid resizeProgress: ", resizeProgress, ". Resetting to 0.");
+                    resizeProgress = 0;
+                    return;
+            }
+
+            // change scene leaf properties
+            if (resizeProgress == 0) {
+                scene.leafX = Math.min(resizeP1.x, resizeP2.x) / simWidth;
+                scene.leafY = Math.min(resizeP1.y, resizeP2.y) / simHeight;
+
+                scene.leafW = (Math.max(resizeP1.x, resizeP2.x) - Math.min(resizeP1.x, resizeP2.x)) / simWidth;
+                scene.leafH = (Math.max(resizeP1.y, resizeP2.y) - Math.min(resizeP1.y, resizeP2.y)) / simHeight;
+            }
+        }
+
+
+        // ant and its components ---------------------------------------------
+
+        class AntBrain {
+            // the brain stores neural connections in an array,
+            // storing source node, destination node, and weight.
+            // Each node layer has its own array!
+            // When thinking, the brain iterates through the array.
+            // Nodes are described in the following Remnote document:
+            // https://www.remnote.com/a/Ants/64ea04ba66036ce974625e35
+            //
+            // example (layer 1): [String source, Int destIndex, Int weight]
+            // example (layer 2): [Int sourceIndex, String dest, Int weight]
+            // innerNodes is an int array, where each index is a different 
+            // inner node value.
+            constructor() {
+                this.layer1connections = [];
+                this.innerNodes = [];
+                this.layer2connections = [];
+                this.actionNodes = new Array(availableActionNodes.length);
+
+                this.innerNodes.fill(0);
+                this.actionNodes.fill(0);
+            }
+
+            makeConnections(genome) {
+                this.layer1connections = genome.layer1connections;
+                this.layer2connections = genome.layer2connections;
+                this.innerNodes = new Array(genome.innerNodeMaxCount);
+            }
+
+            thinkAndGetNewPos(pos, prevPos, scene) {
+                // reset all node values
+                this.innerNodes.fill(0);
+                this.actionNodes.fill(0);
+
+                // computing the FIRST layer
+                this.layer1connections.forEach(cn => {
+                    var v = 0.0;
+                    var h = 0.0;
+                    switch (cn[0]) {
+                        case "LMvX":
+                            var h = prevPos.x - pos.x;
+                            if (h == 0) break;
+                            v = h / Math.abs(h);
+                            break;
+                        case "LMvY":
+                            var h = prevPos.y - pos.y;
+                            if (h == 0) break;
+                            v = (h) / Math.abs(h);
+                            break;
+                        case "RndN":
+                            v = Math.random() * 2 - 1; // E < -1, 1 )
+                            break;
+                        case "PosX":
+                            v = pos.x / simWidth;
+                            break;
+                        case "PosY":
+                            v = pos.y / simHeight;
+                            break;
+                        case "Oscl":
+                            v = Math.sin(scene.currentStep / 32);
+                            break;
+                        case "AntA":
+                            v = scene.currentStep / scene.maxSteps;
+                            break;
+                        case "DsTC":
+                            v = pos.distanceTo(new Vector2(simWidth / 2, simHeight / 2)) / (simWidth / 2 * Math.SQRT2);
+                            break;
+                        default:
+                            console.error("Invalid node. Connection: ", cn);
+                    }
+                    if (Math.abs(v) > 1) console.error("Invalid node value: ", v, ". Connection: ", cn);
+                    this.innerNodes[cn[1]] += cn[2] * v;
+
+                });
+
+                // apply tanh to inner nodes
+                for (let j = 0; j < this.innerNodes.length; ++j) {
+                    this.innerNodes[j] = Math.tanh(this.innerNodes[j]);
+                }
+
+                // computing the SECOND layer
+                this.layer2connections.forEach(cn => {
+                    var v = cn[2] * this.innerNodes[cn[0]];
+                    switch (cn[1]) {
+                        case "MvY":
+                            this.actionNodes[0] += v;
+                            break;
+                        case "MvX":
+                            this.actionNodes[1] += v;
+                            break;
+                        case "MvRn":
+                            this.actionNodes[2] += v;
+                            break;
+                        case "MvtB":
+                            this.actionNodes[3] += v;
+                            break;
+                        case "MvtC":
+                            this.actionNodes[4] += v;
+                            break;
+                        default:
+                            console.error("Invalid node. Connection: ", cn);
+                    }
+                });
+
+                // apply tanh to action nodes and evaluate actions
+                for (let i = 0; i < this.actionNodes.length; ++i) {
+                    var v = Math.tanh(this.actionNodes[i]);
+                    if (Math.random() > Math.abs(v)) continue;
+                    switch (i) {
+
+                        case 0:
+                            if (v < 0) pos.y -= scene.antSpeed;
+                            else pos.y += scene.antSpeed;
+                            break;
+
+                        case 1:
+                            if (v < 0) pos.x -= scene.antSpeed;
+                            else pos.x += scene.antSpeed;
+                            break;
+
+                        case 2:
+                            var r = Math.random();
+                            if (r < 0.25) pos.x -= scene.antSpeed;
+                            else if (r < .5) pos.x += scene.antSpeed;
+                            else if (r < .75) pos.y -= scene.antSpeed;
+                            else pos.y += scene.antSpeed;
+                            break;
+
+                        case 3:
+                            var x_dist = pos.x - simWidth / 2;
+                            var y_dist = pos.y - simHeight / 2;
+                            if (Math.abs(x_dist < simWidth * 0.01) || Math.abs(y_dist < simHeight * 0.01)) break;
+                            var neg = Math.sign(v);
+                            if (Math.abs(x_dist) > Math.abs(y_dist)) {
+                                if (x_dist > 0) pos.x += scene.antSpeed * neg;
+                                else pos.x -= scene.antSpeed * neg;
+                            } else {
+                                if (y_dist > 0) pos.y += scene.antSpeed * neg;
+                                else pos.y -= scene.antSpeed * neg;
+                            }
+                            break;
+
+                        case 4:
+                            var distToCenter = pos.distanceTo(new Vector2(simWidth / 2, simHeight / 2));
+                            if (distToCenter < Math.random() * simWidth * 0.3 + 0.01) break;
+                            var widthDiff = simWidth / 2 - pos.x;
+                            var heightDiff = simHeight / 2 - pos.y;
+                            if (v < 0) {
+                                pos.x += Math.sin(widthDiff / distToCenter);
+                                pos.y += Math.sin(heightDiff / distToCenter);
+                            } else {
+                                if (Math.random() < 0.5) {
+                                    pos.x -= Math.sin(widthDiff / distToCenter);
+                                    pos.y += Math.sin(heightDiff / distToCenter);
+                                } else {
+                                    pos.x += Math.sin(widthDiff / distToCenter);
+                                    pos.y -= Math.sin(heightDiff / distToCenter);
+                                }
+                            }
+                            break;
+                    }
+                }
+
+                // clamp position to borders
+                pos.x = Math.max(1, Math.min(simWidth - 1, pos.x));
+                pos.y = Math.max(1, Math.min(simHeight - 1, pos.y));
+
+                // return new ant parameters
+                return pos;
+            }
+        }
+
+        class AntGenome {
+            constructor(size, innerNodesCount) {
+                this.size = size;
+                this.innerNodeMaxCount = innerNodesCount;
+                this.layer1connections = [];
+                this.layer2connections = [];
+            }
+
+            generateHEXColor() {
+                var n1 = 0;
+                var n2 = 0;
+                this.layer1connections.forEach(conn => {
+                    n1 += sumStringLetters(conn[0]);
+                    n1 += conn[1];
+                    n1 += conn[2];
+                });
+                this.layer2connections.forEach(conn => {
+                    n2 += conn[2];
+                    n2 += sumStringLetters(conn[1]);
+                    n2 += conn[2];
+                });
+
+                n1 = (Math.abs(Math.round(n1 % 200 - 100))) % 100;
+                n2 = (Math.abs(Math.round(n2 % 200 - 100))) % 100;
+                return "#" + (n1).toString(16) + (n2).toString(16);
+            }
+
+            generateRandomly() {
+                this.layer1connections = [];
+                this.layer2connections = [];
+
+                // generating the first layer
+                while (this.layer1connections.length < this.size / 2) {
+                    var chosenSource = availableSensoryNodes[Math.floor(Math.random() * availableSensoryNodes.length)];
+                    var chosenDest = Math.floor(Math.random() * this.innerNodeMaxCount);
+                    var weight = Math.random() * 10 - 5; // E < -5, 5 )
+                    this.layer1connections.push([chosenSource, chosenDest, weight]);
+                }
+
+                // generating the second layer
+                while (this.layer2connections.length + this.layer1connections.length < this.size) {
+                    var chosenDest = availableActionNodes[Math.floor(Math.random() * availableActionNodes.length)];
+                    var chosenSource = Math.floor(Math.random() * this.innerNodeMaxCount);
+                    var weight = Math.random() * 10 - 5; // E < -5, 5 )
+                    this.layer2connections.push([chosenSource, chosenDest, weight]);
+                }
+
+                return this;
+            }
+
+            inheritFrom(genomeList) {
+                this.layer1connections = [];
+                this.layer2connections = [];
+
+                // generating the first layer
+                var i = 0;
+                while (this.layer1connections.length < this.size / 2) {
+                    var chosenParentDNA = genomeList[Math.floor(Math.random() * genomeList.length)].layer1connections[i];
+                    if (Math.random() < scene.mutationRarity) {
+                        chosenParentDNA[0] = availableSensoryNodes[Math.floor(Math.random() * availableSensoryNodes.length)];
+                        scene.mutationsOccured++;
+                    }
+                    this.layer1connections.push(chosenParentDNA);
+                    i++;
+                }
+
+                // generating the second layer
+                i = 0;
+                while (this.layer2connections.length + this.layer1connections.length < this.size) {
+                    var chosenParentDNA = genomeList[Math.floor(Math.random() * genomeList.length)].layer2connections[i];
+                    if (Math.random() < scene.mutationRarity) {
+                        availableActionNodes[0] = availableSensoryNodes[Math.floor(Math.random() * availableActionNodes.length)];
+                        scene.mutationsOccured++;
+                    }
+                    this.layer2connections.push(chosenParentDNA);
+                    i++;
+                }
+
+                return this;
+            }
+        }
+
+        class Ant {
+            constructor(position, genome) {
+                this.prevPos = position.clone();
+                this.pos = position.clone();
+                this.brain = new AntBrain();
+                this.genome = genome;
+                this.color = genome.generateHEXColor();
+
+                this.brain.makeConnections(genome);
+            }
+            think(scene) {
+                var newpos = this.brain.thinkAndGetNewPos(this.pos, this.prevPos, scene);
+                this.prevPos = this.pos;
+                this.pos = newpos;
+            }
+            roundPos() {
+                this.pos.x = Math.round(this.pos.x);
+                this.pos.y = Math.round(this.pos.y);
+            }
+        }
+
+        // scene --------------------------------------------------------------
+
+
+        function setScene() {
+            return {
+                worldSize: new Vector2(simWidth, simHeight),
+                ants: [],
+                generationNumber: 0,
+                maxSteps: maxSteps,
+                currentStep: 0,
+                isPaused: true,
+                mutationsOccured: 0,
+
+                population: population,
+                genomeSize: genomeSize,
+                innerNodesCount: innerNodesCount,
+                mutationRarity: mutationRarity,
+                childrenPer2Parents: 2,
+                antSpeed: 1,
+
+                leafX: .7,
+                leafY: 0,
+                leafW: .4,
+                leafH: 1.1,
+            };
+        }
+        var scene = setScene();
+
+        function addAnt(x, y, genome) {
+            scene.ants.push(new Ant(new Vector2(x, y), genome));
+        }
+
+        function addAntRandPos(genome) {
+            var randY = Math.floor(Math.random() * simHeight);
+            var randX = Math.floor(Math.random() * simWidth);
+            addAnt(randX, randY, genome);
+        }
+
+        function setupScene() {
+            // scene
+            scene = setScene();
+
+            // chart
+            xChartLabels = [0, ];
+            populationSizes = [];
+            populationChart = new Chart("populationChart", {
+                type: "line",
+                data: {
+                    labels: xChartLabels,
+                    datasets: [{
+                        label: "Population",
+                        fill: false,
+                        borderColor: "rgba(0,255,0,0.9)",
+                        data: populationSizes
+                    }]
+                },
+                options: {
+                    scales: {
+                        yAxes: [{
+                            display: true,
+                            ticks: {
+                                beginAtZero: true // minimum value will be 0.
+                            }
+                        }]
+                    }
+                }
+            });
+
+            // spawn Ants
+            for (let k = 0; k < scene.population; ++k) {
+                addAntRandPos(new AntGenome(scene.genomeSize, scene.innerNodesCount).generateRandomly());
+            }
+        }
+
+        // draw ---------------------------------------------------------------
+
+        function drawAnt(ant) {
+            c.fillStyle = ant.color;
+            c.beginPath();
+            c.arc(ant.pos.x * cScale, ant.pos.y * cScale, cv.width / simWidth / 2, 0.0, 2.0 * Math.PI);
+            c.closePath();
+            c.fill();
+        }
+
+        function drawLeaf() {
+            c.fillStyle = "#c2eba9";
+            c.rect(
+                scene.leafX * cv.width,
+                scene.leafY * cv.height,
+                scene.leafW * cv.width,
+                scene.leafH * cv.height
+            );
+            c.fill();
+        }
+
+        function draw() {
+            c.clearRect(0, 0, cv.width, cv.height);
+            drawLeaf();
+            scene.ants.forEach(ant => {
+                drawAnt(ant);
+            });
+        }
+
+        // simulation ---------------------------------------------------------
+
+        function simulate() {
+
+            scene.ants.forEach(ant => {
+                ant.think(scene);
+                ant.roundPos();
+            });
+
+            // increase current generation step
+            scene.currentStep++;
+            document.querySelector("#currentStepNumber").innerHTML = scene.currentStep;
+
+            // move to next generation if time runs out, else stop here
+            if (scene.currentStep < scene.maxSteps) return;
+            scene.currentStep = 0;
+            scene.generationNumber++;
+            scene.mutationsOccured = 0;
+
+            // make a list of survivor genomes
+            var survivorGenomes = [];
+            scene.ants.forEach(ant => {
+                if (ant.pos.isInRect(scene.leafX * simWidth, scene.leafY * simHeight, scene.leafW * simWidth, scene.leafH * simHeight)) survivorGenomes.push(ant.genome);
+            });
+
+            // determine the amount of children per 2 parents
+            scene.childrenPer2Parents = Math.max(1, Math.ceil((scene.population - scene.ants.length) / (scene.population / 2) + 2));
+
+            // increase gen number on page
+            var survRate = Math.round(1000 * survivorGenomes.length / scene.ants.length) / 10;
+            document.querySelector("#generationNumber").innerHTML = scene.generationNumber;
+            document.querySelector("#survivability").innerHTML = survRate + "% ";
+
+            // record population size in chart and update chart
+            xChartLabels.push(scene.generationNumber);
+            populationSizes.push(scene.ants.length);
+            if (populationSizes.length > 100) populationSizes.splice(0, 1);
+            if (xChartLabels.length > 100) xChartLabels.splice(0, 1);
+            populationChart.update();
+
+            // empty ant array
+            scene.ants = [];
+
+            // delete 1 survivor genome that didnt pair with another
+            if (survivorGenomes.length % 2 != 0) survivorGenomes.pop();
+
+            // generate children
+            while (survivorGenomes.length > 0) {
+                var pg1 = survivorGenomes.pop();
+                var pg2 = survivorGenomes.pop();
+                for (let i = 0; i < scene.childrenPer2Parents; ++i) {
+                    var chldGenome = new AntGenome(scene.genomeSize, scene.innerNodesCount);
+                    chldGenome.inheritFrom([pg1, pg2]);
+                    addAntRandPos(chldGenome);
+                }
+            }
+
+            // update mutations occured number
+            document.querySelector("#mutationsNumber").innerHTML = scene.mutationsOccured;
+
+        }
+
+        function update() {
+            if (!scene.isPaused) simulate();
+            draw();
+
+            if (resizeProgress != 0) resizeLeaf();
+
+            requestAnimationFrame(update);
+        }
+
+        setupScene();
+        update();
+
+        document.getElementById("maxStepsSlider").oninput = function() {
+            maxSteps = Math.floor(this.value) * 10;
+            document.querySelector("#maxStepsNumber").innerHTML = maxSteps;
+        }
+        document.getElementById("genomeSizeSlider").oninput = function() {
+            genomeSize = Math.floor(this.value) * 4;
+            document.querySelector("#genomeSizeNumber").innerHTML = genomeSize;
+        }
+        document.getElementById("innerNodesCountSlider").oninput = function() {
+            innerNodesCount = Math.floor(this.value) * 4;
+            document.querySelector("#innerNodesCountNumber").innerHTML = innerNodesCount;
+        }
+        document.getElementById("populationSlider").oninput = function() {
+            population = Math.floor(this.value) * 100;
+            document.querySelector("#populationNumber").innerHTML = population;
+        }
+    </script>
+</body>
+
+</html>
